@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<services xmlns="http://www.demandware.com/xml/impex/services/2014-09-26">
+
+    <!-- 
+        LLM Integration Service Configuration
+        
+        This file defines services for OpenAI, Anthropic, and Google Gemini LLM providers.
+        
+        SETUP INSTRUCTIONS:
+        1. Import this file via Business Manager: Administration > Operations > Import & Export
+        2. Navigate to Administration > Operations > Services
+        3. For each provider credential (llm.openai.cred, llm.anthropic.cred, llm.gemini.cred):
+           - Set "Password" to your provider's API key
+        4. Set each service mode to "Live" for production or "Mock" for development/testing
+    -->
+
+    <!-- ==================== SERVICE CREDENTIALS ==================== -->
+    
+    <service-credential service-credential-id="llm.openai.cred">
+        <url>https://api.openai.com</url>
+        <user-id/>
+        <password masked="true"/>
+    </service-credential>
+
+    <service-credential service-credential-id="llm.anthropic.cred">
+        <url>https://api.anthropic.com</url>
+        <user-id/>
+        <password masked="true"/>
+    </service-credential>
+
+    <service-credential service-credential-id="llm.gemini.cred">
+        <url>https://generativelanguage.googleapis.com/v1beta/models</url>
+        <user-id/>
+        <password masked="true"/>
+    </service-credential>
+
+    <!-- ==================== SERVICE PROFILES ==================== -->
+    
+    <service-profile service-profile-id="llm.openai.profile">
+        <!-- Timeout for LLM requests (120 seconds — LLM responses can be slow for long prompts) -->
+        <timeout-millis>120000</timeout-millis>
+        <!-- Rate limiting: 60 calls per minute -->
+        <rate-limit-enabled>true</rate-limit-enabled>
+        <rate-limit-calls>60</rate-limit-calls>
+        <rate-limit-millis>60000</rate-limit-millis>
+        <!-- Circuit breaker: trip after 3 failures, reset after 30 seconds -->
+        <cb-enabled>true</cb-enabled>
+        <cb-calls>3</cb-calls>
+        <cb-millis>30000</cb-millis>
+    </service-profile>
+
+    <service-profile service-profile-id="llm.anthropic.profile">
+        <timeout-millis>120000</timeout-millis>
+        <rate-limit-enabled>true</rate-limit-enabled>
+        <rate-limit-calls>60</rate-limit-calls>
+        <rate-limit-millis>60000</rate-limit-millis>
+        <cb-enabled>true</cb-enabled>
+        <cb-calls>3</cb-calls>
+        <cb-millis>30000</cb-millis>
+    </service-profile>
+
+    <service-profile service-profile-id="llm.gemini.profile">
+        <timeout-millis>120000</timeout-millis>
+        <rate-limit-enabled>true</rate-limit-enabled>
+        <rate-limit-calls>60</rate-limit-calls>
+        <rate-limit-millis>60000</rate-limit-millis>
+        <cb-enabled>true</cb-enabled>
+        <cb-calls>3</cb-calls>
+        <cb-millis>30000</cb-millis>
+    </service-profile>
+
+    <!-- ==================== SERVICE DEFINITIONS ==================== -->
+
+    <service service-id="llm.openai">
+        <service-type>HTTP</service-type>
+        <enabled>true</enabled>
+        <log-prefix>llm-openai</log-prefix>
+        <comm-log-enabled>false</comm-log-enabled>
+        <force-prd-enabled>false</force-prd-enabled>
+        <mock-mode-enabled>false</mock-mode-enabled>
+        <profile-id>llm.openai.profile</profile-id>
+        <credential-id>llm.openai.cred</credential-id>
+    </service>
+
+    <service service-id="llm.anthropic">
+        <service-type>HTTP</service-type>
+        <enabled>true</enabled>
+        <log-prefix>llm-anthropic</log-prefix>
+        <comm-log-enabled>false</comm-log-enabled>
+        <force-prd-enabled>false</force-prd-enabled>
+        <mock-mode-enabled>false</mock-mode-enabled>
+        <profile-id>llm.anthropic.profile</profile-id>
+        <credential-id>llm.anthropic.cred</credential-id>
+    </service>
+
+    <service service-id="llm.gemini">
+        <service-type>HTTP</service-type>
+        <enabled>true</enabled>
+        <log-prefix>llm-gemini</log-prefix>
+        <comm-log-enabled>false</comm-log-enabled>
+        <force-prd-enabled>false</force-prd-enabled>
+        <mock-mode-enabled>false</mock-mode-enabled>
+        <profile-id>llm.gemini.profile</profile-id>
+        <credential-id>llm.gemini.cred</credential-id>
+    </service>
+
+</services>

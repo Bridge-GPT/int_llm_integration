@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata xmlns="http://www.demandware.com/xml/impex/metadata/2006-10-31">
+    <type-extension type-id="SitePreferences">
+        <custom-attribute-definitions>
+            <!-- 
+                LLM Available Models JSON
+                
+                JSON object mapping providers to tier/model pairs.
+                Example:
+                    {
+                        "openai": {
+                            "cheap": "gpt-5-nano",
+                            "basic": "gpt-5-mini",
+                            "premium": "gpt-5.2"
+                        },
+                        "anthropic": {
+                            "cheap": "claude-haiku-4-5",
+                            "basic": "claude-sonnet-4-5",
+                            "premium": "claude-opus-4-5"
+                        },
+                        "gemini": {
+                            "cheap": "gemini-2.5-flash-lite",
+                            "basic": "gemini-3-flash-preview",
+                            "premium": "gemini-3-pro-preview"
+                        }
+                    }
+            -->
+            <attribute-definition attribute-id="llmAvailableModelsJson">
+                <display-name xml:lang="x-default">LLM Available Models JSON</display-name>
+                <description xml:lang="x-default">JSON object mapping LLM providers to tier/model pairs. Keys are provider names (openai, anthropic, gemini), values are objects with tier names as keys and model identifiers as values.</description>
+                <type>text</type>
+                <mandatory-flag>false</mandatory-flag>
+                <externally-managed-flag>false</externally-managed-flag>
+                <default-value><![CDATA[{
+  "openai": {
+    "cheap": "gpt-5-nano",
+    "basic": "gpt-5-mini",
+    "premium": "gpt-5.2"
+  },
+  "anthropic": {
+    "cheap": "claude-haiku-4-5",
+    "basic": "claude-sonnet-4-5",
+    "premium": "claude-opus-4-5"
+  },
+  "gemini": {
+    "cheap": "gemini-2.5-flash-lite",
+    "basic": "gemini-3-flash-preview",
+    "premium": "gemini-3-pro-preview"
+  }
+}]]></default-value>
+            </attribute-definition>
+
+            <!-- Anthropic API Version Header -->
+            <attribute-definition attribute-id="llmAnthropicApiVersion">
+                <display-name xml:lang="x-default">Anthropic API Version</display-name>
+                <description xml:lang="x-default">The required anthropic-version header value for Anthropic API calls (e.g., 2024-01-01). This must be set when using the Anthropic provider.</description>
+                <type>string</type>
+                <mandatory-flag>false</mandatory-flag>
+                <externally-managed-flag>false</externally-managed-flag>
+                <default-value>2023-06-01</default-value>
+            </attribute-definition>
+
+            <!-- Debug Mode Toggle -->
+            <attribute-definition attribute-id="llmDebugMode">
+                <display-name xml:lang="x-default">LLM Debug Mode</display-name>
+                <description xml:lang="x-default">When enabled, includes raw provider responses in the output for debugging purposes. Should be disabled in production.</description>
+                <type>boolean</type>
+                <mandatory-flag>false</mandatory-flag>
+                <externally-managed-flag>false</externally-managed-flag>
+                <default-value>false</default-value>
+            </attribute-definition>
+
+            <!-- Default LLM Model -->
+            <attribute-definition attribute-id="llmDefaultModel">
+                <display-name xml:lang="x-default">Default LLM Model</display-name>
+                <description xml:lang="x-default">Default model identifier for LLM calls (e.g., "gpt-5.2"). Provider is resolved automatically from llmAvailableModelsJson.</description>
+                <type>string</type>
+                <mandatory-flag>false</mandatory-flag>
+                <externally-managed-flag>false</externally-managed-flag>
+                <default-value>gpt-5.2</default-value>
+            </attribute-definition>
+
+            <!-- System Instructions -->
+            <attribute-definition attribute-id="llmSystemInstructions">
+                <display-name xml:lang="x-default">System Instructions</display-name>
+                <description xml:lang="x-default">Persistent system-level instructions included with every LLM request. Use for cross-cutting directives that apply regardless of the specific use case.</description>
+                <type>text</type>
+                <mandatory-flag>false</mandatory-flag>
+                <externally-managed-flag>false</externally-managed-flag>
+            </attribute-definition>
+        </custom-attribute-definitions>
+
+        <group-definitions>
+            <attribute-group group-id="LLMIntegration">
+                <display-name xml:lang="x-default">LLM Integration</display-name>
+                <attribute attribute-id="llmAvailableModelsJson"/>
+                <attribute attribute-id="llmAnthropicApiVersion"/>
+                <attribute attribute-id="llmDebugMode"/>
+                <attribute attribute-id="llmDefaultModel"/>
+                <attribute attribute-id="llmSystemInstructions"/>
+            </attribute-group>
+        </group-definitions>
+    </type-extension>
+</metadata>
