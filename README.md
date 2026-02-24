@@ -431,7 +431,7 @@ In a headless (PWA Kit) environment, the cartridge runs entirely on the SFCC ins
 
 This project is open source and available under the [MIT License](LICENSE).
 
-Copyright (c) 2026 Brian Case.
+Copyright (c) 2026 Bridge GPT.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files, to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software.
 
