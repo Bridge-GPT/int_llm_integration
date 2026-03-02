@@ -80,6 +80,16 @@
                 <default-value>gpt-5.2</default-value>
             </attribute-definition>
 
+            <!-- Test Mode Toggle -->
+            <attribute-definition attribute-id="llmTestModeEnabled">
+                <display-name xml:lang="x-default">LLM Test Mode Enabled</display-name>
+                <description xml:lang="x-default">When enabled, exposes the LLMTest-Show storefront page for testing LLM connectivity. Never leave enabled in production.</description>
+                <type>boolean</type>
+                <mandatory-flag>false</mandatory-flag>
+                <externally-managed-flag>false</externally-managed-flag>
+                <default-value>false</default-value>
+            </attribute-definition>
+
             <!-- System Instructions -->
             <attribute-definition attribute-id="llmSystemInstructions">
                 <display-name xml:lang="x-default">System Instructions</display-name>
@@ -98,6 +108,7 @@
                 <attribute attribute-id="llmDebugMode"/>
                 <attribute attribute-id="llmDefaultModel"/>
                 <attribute attribute-id="llmSystemInstructions"/>
+                <attribute attribute-id="llmTestModeEnabled"/>
             </attribute-group>
         </group-definitions>
     </type-extension>

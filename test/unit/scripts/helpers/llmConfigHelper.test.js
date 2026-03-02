@@ -9,6 +9,7 @@ describe('llmConfigHelper', function() {
     
     var llmConfigHelper;
     var mockSite;
+    var mockSystem;
     var mockLogger;
     var mockErrorHelper;
     var preferenceValues;
@@ -34,6 +35,14 @@ describe('llmConfigHelper', function() {
             })
         };
         
+        // Mock System
+        mockSystem = {
+            getInstanceType: sinon.stub().returns(0),
+            DEVELOPMENT_SYSTEM: 0,
+            STAGING_SYSTEM: 1,
+            PRODUCTION_SYSTEM: 2
+        };
+
         // Mock Logger
         mockLogger = {
             info: sinon.stub(),
@@ -69,6 +78,7 @@ describe('llmConfigHelper', function() {
         
         llmConfigHelper = proxyquire('../../../../cartridge/scripts/helpers/llmConfigHelper', {
             'dw/system/Site': mockSite,
+            'dw/system/System': mockSystem,
             'dw/system/Logger': mockLoggerModule,
             '*/cartridge/scripts/helpers/llmErrorHelper': mockErrorHelper
         });
@@ -435,6 +445,51 @@ describe('llmConfigHelper', function() {
             } catch (e) {
                 expect(e.errorType).to.equal('ConfigurationError');
             }
+        });
+    });
+
+    describe('isTestModeEnabled', function() {
+
+        it('should return false when preference is null', function() {
+            preferenceValues.llmTestModeEnabled = null;
+
+            var result = llmConfigHelper.isTestModeEnabled();
+
+            expect(result).to.be.false;
+        });
+
+        it('should return false when preference is false', function() {
+            preferenceValues.llmTestModeEnabled = false;
+
+            var result = llmConfigHelper.isTestModeEnabled();
+
+            expect(result).to.be.false;
+        });
+
+        it('should return true when preference is true', function() {
+            preferenceValues.llmTestModeEnabled = true;
+
+            var result = llmConfigHelper.isTestModeEnabled();
+
+            expect(result).to.be.true;
+        });
+
+        it('should return false on production even when preference is true', function() {
+            preferenceValues.llmTestModeEnabled = true;
+            mockSystem.getInstanceType.returns(mockSystem.PRODUCTION_SYSTEM);
+
+            var result = llmConfigHelper.isTestModeEnabled();
+
+            expect(result).to.be.false;
+        });
+
+        it('should return true on staging when preference is true', function() {
+            preferenceValues.llmTestModeEnabled = true;
+            mockSystem.getInstanceType.returns(mockSystem.STAGING_SYSTEM);
+
+            var result = llmConfigHelper.isTestModeEnabled();
+
+            expect(result).to.be.true;
         });
     });
 

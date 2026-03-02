@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Connection Test</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; color: #333; padding: 2rem; }
+        .container { max-width: 720px; margin: 0 auto; }
+        h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+        .subtitle { color: #666; margin-bottom: 1.5rem; font-size: 0.9rem; }
+        .card { background: #fff; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .disabled-msg { text-align: center; padding: 3rem 1.5rem; }
+        .disabled-msg h2 { color: #b00; margin-bottom: 0.5rem; }
+        .disabled-msg p { color: #666; }
+        label { display: block; font-weight: 600; margin-bottom: 0.25rem; font-size: 0.9rem; }
+        select { width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-size: 0.9rem; margin-bottom: 1rem; }
+        .btn-row { display: flex; gap: 0.75rem; }
+        .btn { padding: 0.6rem 1.2rem; border: none; border-radius: 4px; font-size: 0.9rem; cursor: pointer; font-weight: 600; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-sync { background: #0066cc; color: #fff; }
+        .btn-sync:hover:not(:disabled) { background: #0052a3; }
+        .btn-batch { background: #28a745; color: #fff; }
+        .btn-batch:hover:not(:disabled) { background: #218838; }
+        .result { display: none; margin-top: 1rem; }
+        .result.visible { display: block; }
+        .result-header { font-weight: 600; margin-bottom: 0.5rem; font-size: 0.9rem; }
+        .result-body { background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 4px; padding: 1rem; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 0.8rem; white-space: pre-wrap; word-break: break-word; max-height: 400px; overflow-y: auto; }
+        .success { border-left: 4px solid #28a745; }
+        .error { border-left: 4px solid #dc3545; }
+        .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #ccc; border-top-color: #333; border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; margin-right: 0.4rem; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .warning { background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; padding: 0.75rem; margin-bottom: 1rem; font-size: 0.85rem; color: #856404; }
+        .batch-status { font-size: 0.9rem; color: #555; margin-bottom: 0.5rem; }
+        .batch-status .spinner { margin-right: 0.3rem; }
+        .batch-response { background: #e8f5e9; border: 1px solid #a5d6a7; border-radius: 4px; padding: 0.75rem; margin-bottom: 0.75rem; display: none; }
+        .batch-response.visible { display: block; }
+        .batch-response .response-label { font-size: 0.75rem; color: #2e7d32; font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem; }
+        .batch-response .response-text { font-size: 1rem; color: #1b5e20; }
+        .batch-response.error-response { background: #fce4ec; border-color: #ef9a9a; }
+        .batch-response.error-response .response-label { color: #c62828; }
+        .batch-response.error-response .response-text { color: #b71c1c; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>LLM Connection Test</h1>
+    <p class="subtitle">Verify connectivity to LLM providers configured in Site Preferences</p>
+
+    <isif condition="${!pdict.testModeEnabled}">
+        <div class="card disabled-msg">
+            <h2>Test Mode Disabled</h2>
+            <p>Set <strong>llmTestModeEnabled</strong> to <strong>true</strong> in Site Preferences to use this page.</p>
+            <p style="margin-top:0.5rem; font-size:0.85rem;">Merchant Tools &rarr; Site Preferences &rarr; Custom Preferences &rarr; LLM Integration</p>
+        </div>
+    <iselse/>
+        <div class="warning">
+            This page is for testing only. Disable <strong>llmTestModeEnabled</strong> when finished. Never leave enabled in production.
+        </div>
+
+        <div class="card">
+            <label for="provider">Provider</label>
+            <select id="provider">
+                <option value="">-- Select Provider --</option>
+                <isloop items="${pdict.providers}" var="p">
+                    <option value="${p}">${p}</option>
+                </isloop>
+            </select>
+
+            <label for="model">Model</label>
+            <select id="model" disabled>
+                <option value="">-- Select Provider First --</option>
+            </select>
+
+            <div class="btn-row">
+                <button class="btn btn-sync" id="btnSync" disabled>Test Sync</button>
+                <button class="btn btn-batch" id="btnBatch" disabled>Test Batch</button>
+            </div>
+        </div>
+
+        <div class="result" id="syncResult">
+            <div class="result-header">Sync Test Result</div>
+            <div class="result-body" id="syncResultBody"></div>
+        </div>
+
+        <div class="result" id="batchResult">
+            <div class="result-header">Batch Test Result</div>
+            <div class="batch-status" id="batchStatusMsg"></div>
+            <div class="batch-response" id="batchResponseMsg"></div>
+            <div class="result-body" id="batchResultBody"></div>
+        </div>
+
+        <input type="hidden" id="csrfTokenName" value="${pdict.csrfTokenName}" />
+        <input type="hidden" id="csrfToken" value="${pdict.csrfToken}" />
+        <input type="hidden" id="modelsMapJson" value="<isprint value="${pdict.modelsMapJson}" encoding="htmlcontent" />" />
+
+        <script>
+            (function () {
+                var modelsMap = JSON.parse(document.getElementById('modelsMapJson').value);
+                var providerSelect = document.getElementById('provider');
+                var modelSelect = document.getElementById('model');
+                var btnSync = document.getElementById('btnSync');
+                var btnBatch = document.getElementById('btnBatch');
+                var csrfTokenName = document.getElementById('csrfTokenName').value;
+                var csrfToken = document.getElementById('csrfToken').value;
+
+                providerSelect.addEventListener('change', function () {
+                    var provider = providerSelect.value;
+                    modelSelect.innerHTML = '';
+
+                    if (!provider) {
+                        modelSelect.innerHTML = '<option value="">-- Select Provider First --</option>';
+                        modelSelect.disabled = true;
+                        btnSync.disabled = true;
+                        btnBatch.disabled = true;
+                        return;
+                    }
+
+                    var models = modelsMap[provider] || [];
+                    if (models.length === 0) {
+                        modelSelect.innerHTML = '<option value="">No models configured</option>';
+                        modelSelect.disabled = true;
+                        btnSync.disabled = true;
+                        btnBatch.disabled = true;
+                        return;
+                    }
+
+                    modelSelect.innerHTML = '<option value="">-- Select Model --</option>';
+                    for (var i = 0; i < models.length; i++) {
+                        var opt = document.createElement('option');
+                        opt.value = models[i];
+                        opt.textContent = models[i];
+                        modelSelect.appendChild(opt);
+                    }
+                    modelSelect.disabled = false;
+                });
+
+                modelSelect.addEventListener('change', function () {
+                    var hasModel = !!modelSelect.value;
+                    btnSync.disabled = !hasModel;
+                    btnBatch.disabled = !hasModel;
+                });
+
+                function showResult(containerId, bodyId, data, isSuccess) {
+                    var container = document.getElementById(containerId);
+                    var body = document.getElementById(bodyId);
+                    body.textContent = JSON.stringify(data, null, 2);
+                    body.className = 'result-body ' + (isSuccess ? 'success' : 'error');
+                    container.className = 'result visible';
+                }
+
+                function setLoading(btn, loading) {
+                    if (loading) {
+                        btn.disabled = true;
+                        btn.setAttribute('data-original', btn.textContent);
+                        btn.innerHTML = '<span class="spinner"></span>Testing...';
+                    } else {
+                        btn.disabled = false;
+                        btn.textContent = btn.getAttribute('data-original');
+                    }
+                }
+
+                btnSync.addEventListener('click', function () {
+                    var provider = providerSelect.value;
+                    var model = modelSelect.value;
+                    if (!provider || !model) return;
+
+                    setLoading(btnSync, true);
+
+                    var url = 'LLMTest-Test?provider=' + encodeURIComponent(provider) +
+                              '&model=' + encodeURIComponent(model) +
+                              '&' + encodeURIComponent(csrfTokenName) + '=' + encodeURIComponent(csrfToken);
+
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('GET', url, true);
+                    xhr.onload = function () {
+                        setLoading(btnSync, false);
+                        try {
+                            var data = JSON.parse(xhr.responseText);
+                            showResult('syncResult', 'syncResultBody', data, data.success);
+                        } catch (e) {
+                            showResult('syncResult', 'syncResultBody', { error: xhr.responseText }, false);
+                        }
+                    };
+                    xhr.onerror = function () {
+                        setLoading(btnSync, false);
+                        showResult('syncResult', 'syncResultBody', { error: 'Network error' }, false);
+                    };
+                    xhr.send();
+                });
+
+                var batchStatusMsg = document.getElementById('batchStatusMsg');
+                var batchResponseMsg = document.getElementById('batchResponseMsg');
+
+                var STATUS_LABELS = {
+                    validating: 'Batch submitted. The provider is validating your request...',
+                    pending: 'Batch is queued and waiting to be processed...',
+                    processing: 'Batch is being processed by the LLM provider...',
+                    finalizing: 'Almost done! The provider is finalizing results...',
+                    completed: 'Batch complete!',
+                    failed: 'Batch failed.',
+                    expired: 'Batch expired before completing.',
+                    cancelled: 'Batch was cancelled.',
+                    cancelling: 'Batch is being cancelled...'
+                };
+
+                function setBatchStatus(status, extra) {
+                    var msg = STATUS_LABELS[status] || ('Status: ' + status);
+                    if (extra) msg += ' ' + extra;
+                    var isPolling = status !== 'completed' && status !== 'failed' && status !== 'expired' && status !== 'cancelled';
+                    batchStatusMsg.innerHTML = isPolling
+                        ? '<span class="spinner"></span>' + msg
+                        : msg;
+                }
+
+                function showBatchResponse(data) {
+                    if (data.response) {
+                        batchResponseMsg.innerHTML = '<div class="response-label">LLM Response</div><div class="response-text">' +
+                            data.response.replace(/</g, '&lt;').replace(/>/g, '&gt;') +
+                            '</div>';
+                        batchResponseMsg.className = 'batch-response visible';
+                    } else if (data.error || data.resultError) {
+                        var errMsg = data.error || (data.resultError && data.resultError.message) || JSON.stringify(data.resultError);
+                        batchResponseMsg.innerHTML = '<div class="response-label">Error</div><div class="response-text">' +
+                            errMsg.replace(/</g, '&lt;').replace(/>/g, '&gt;') +
+                            '</div>';
+                        batchResponseMsg.className = 'batch-response error-response visible';
+                    }
+                }
+
+                function resetBatchUI() {
+                    batchStatusMsg.innerHTML = '';
+                    batchResponseMsg.innerHTML = '';
+                    batchResponseMsg.className = 'batch-response';
+                }
+
+                btnBatch.addEventListener('click', function () {
+                    var provider = providerSelect.value;
+                    var model = modelSelect.value;
+                    if (!provider || !model) return;
+
+                    setLoading(btnBatch, true);
+                    resetBatchUI();
+
+                    var url = 'LLMTest-BatchTest?provider=' + encodeURIComponent(provider) +
+                              '&model=' + encodeURIComponent(model) +
+                              '&' + encodeURIComponent(csrfTokenName) + '=' + encodeURIComponent(csrfToken);
+
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('GET', url, true);
+                    xhr.onload = function () {
+                        try {
+                            var data = JSON.parse(xhr.responseText);
+                            showResult('batchResult', 'batchResultBody', data, data.success);
+
+                            if (!data.success) {
+                                setLoading(btnBatch, false);
+                                setBatchStatus(data.status || 'failed');
+                                showBatchResponse(data);
+                                return;
+                            }
+
+                            setBatchStatus(data.status);
+
+                            var isTerminal = data.status === 'completed' || data.status === 'failed' || data.status === 'expired' || data.status === 'cancelled';
+                            if (isTerminal) {
+                                setLoading(btnBatch, false);
+                                showBatchResponse(data);
+                            } else {
+                                pollBatchStatus(provider, model, data.batchId);
+                            }
+                        } catch (e) {
+                            setLoading(btnBatch, false);
+                            showResult('batchResult', 'batchResultBody', { error: xhr.responseText }, false);
+                        }
+                    };
+                    xhr.onerror = function () {
+                        setLoading(btnBatch, false);
+                        showResult('batchResult', 'batchResultBody', { error: 'Network error' }, false);
+                    };
+                    xhr.send();
+                });
+
+                function pollBatchStatus(provider, model, batchId) {
+                    var pollInterval = 3000;
+                    var maxPolls = 40;
+                    var pollCount = 0;
+
+                    var timer = setInterval(function () {
+                        pollCount++;
+                        if (pollCount > maxPolls) {
+                            clearInterval(timer);
+                            setLoading(btnBatch, false);
+                            setBatchStatus('processing', 'Polling timed out after ' + (maxPolls * pollInterval / 1000) + 's. The batch may still complete — check logs or try again.');
+                            return;
+                        }
+
+                        var elapsed = pollCount * pollInterval / 1000;
+                        setBatchStatus(batchStatusMsg.getAttribute('data-status') || 'processing', '(' + elapsed + 's elapsed)');
+
+                        var statusUrl = 'LLMTest-BatchStatus?provider=' + encodeURIComponent(provider) +
+                                        '&batchId=' + encodeURIComponent(batchId) +
+                                        '&model=' + encodeURIComponent(model);
+
+                        var req = new XMLHttpRequest();
+                        req.open('GET', statusUrl, true);
+                        req.onload = function () {
+                            try {
+                                var statusData = JSON.parse(req.responseText);
+                                batchStatusMsg.setAttribute('data-status', statusData.status);
+                                setBatchStatus(statusData.status, '(' + elapsed + 's elapsed)');
+
+                                var isTerminal = statusData.status === 'completed' || statusData.status === 'failed' || statusData.status === 'expired' || statusData.status === 'cancelled';
+                                if (isTerminal) {
+                                    clearInterval(timer);
+                                    setLoading(btnBatch, false);
+                                    setBatchStatus(statusData.status);
+                                    showBatchResponse(statusData);
+
+                                    var body = document.getElementById('batchResultBody');
+                                    var current = body.textContent;
+                                    body.textContent = current + '\n\n--- Batch Result ---\n' + JSON.stringify(statusData, null, 2);
+                                }
+                            } catch (e) {
+                                clearInterval(timer);
+                                setLoading(btnBatch, false);
+                                setBatchStatus('failed', 'Could not parse poll response.');
+                            }
+                        };
+                        req.onerror = function () {
+                            clearInterval(timer);
+                            setLoading(btnBatch, false);
+                            setBatchStatus('failed', 'Network error during polling.');
+                        };
+                        req.send();
+                    }, pollInterval);
+                }
+            })();
+        </script>
+    </isif>
+</div>
+</body>
+</html>

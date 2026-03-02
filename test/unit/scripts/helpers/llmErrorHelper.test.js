@@ -25,9 +25,17 @@ describe('llmErrorHelper', function() {
             expect(llmErrorHelper.ERROR_TYPES.NetworkError).to.equal('NetworkError');
         });
         
-        it('should have exactly 7 error types', function() {
+        it('should have exactly 9 error types', function() {
             var keys = Object.keys(llmErrorHelper.ERROR_TYPES);
-            expect(keys).to.have.lengthOf(7);
+            expect(keys).to.have.lengthOf(9);
+        });
+
+        it('should include BatchSubmissionError', function() {
+            expect(llmErrorHelper.ERROR_TYPES.BatchSubmissionError).to.equal('BatchSubmissionError');
+        });
+
+        it('should include BatchExpiredError', function() {
+            expect(llmErrorHelper.ERROR_TYPES.BatchExpiredError).to.equal('BatchExpiredError');
         });
     });
     
@@ -71,7 +79,38 @@ describe('llmErrorHelper', function() {
                 500,
                 null
             );
-            
+
+            expect(error.providerError).to.be.null;
+        });
+
+        it('should create valid error with BatchSubmissionError type', function() {
+            var error = llmErrorHelper.createLLMError(
+                'Batch upload failed',
+                llmErrorHelper.ERROR_TYPES.BatchSubmissionError,
+                500,
+                { detail: 'upload timeout' }
+            );
+
+            expect(error).to.be.an.instanceof(Error);
+            expect(error.message).to.equal('Batch upload failed');
+            expect(error.errorType).to.equal('BatchSubmissionError');
+            expect(error.status).to.equal(500);
+            expect(error.isLLMError).to.equal(true);
+            expect(error.providerError).to.deep.equal({ detail: 'upload timeout' });
+        });
+
+        it('should create valid error with BatchExpiredError type', function() {
+            var error = llmErrorHelper.createLLMError(
+                'Batch expired after 24h',
+                llmErrorHelper.ERROR_TYPES.BatchExpiredError,
+                500,
+                null
+            );
+
+            expect(error).to.be.an.instanceof(Error);
+            expect(error.message).to.equal('Batch expired after 24h');
+            expect(error.errorType).to.equal('BatchExpiredError');
+            expect(error.isLLMError).to.equal(true);
             expect(error.providerError).to.be.null;
         });
     });

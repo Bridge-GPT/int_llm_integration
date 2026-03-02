@@ -20,7 +20,9 @@ var ERROR_TYPES = {
     TimeoutError: 'TimeoutError',
     ProviderError: 'ProviderError',
     ConfigurationError: 'ConfigurationError',
-    NetworkError: 'NetworkError'
+    NetworkError: 'NetworkError',
+    BatchSubmissionError: 'BatchSubmissionError',
+    BatchExpiredError: 'BatchExpiredError'
 };
 
 /**

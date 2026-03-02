@@ -44,7 +44,7 @@ This creates three service definitions (`llm.openai`, `llm.anthropic`, `llm.gemi
 6. Select `system-objecttype-extensions.xml`, click **Next**, then click **Import**
 7. Confirm the status shows **Success**
 
-This creates the LLM Integration custom preference group with five site preference attributes.
+This creates the LLM Integration custom preference group with six site preference attributes.
 
 ### Step 4: Configure Service Credentials
 
@@ -70,6 +70,7 @@ This creates the LLM Integration custom preference group with five site preferen
 | `llmDebugMode` | Boolean | `false` | Include raw provider responses in output (disable in production) |
 | `llmDefaultModel` | String | `gpt-5.2` | Default model identifier — provider is resolved automatically from the models JSON |
 | `llmSystemInstructions` | Text | (empty) | Persistent system-level instructions included with every LLM request |
+| `llmTestModeEnabled` | Boolean | `false` | Enables the connection test page — **never leave enabled in production** |
 
 #### Available Models JSON Format
 
@@ -102,25 +103,15 @@ This creates the LLM Integration custom preference group with five site preferen
 
 ### Step 7: Verify Installation
 
-The cartridge includes a test controller with three endpoints for verifying your setup. Replace `<sandbox>` with your sandbox hostname and `<site>` with your site ID (e.g., `Sites-SiteGenesis-Site`).
+The cartridge includes a built-in connection test page for verifying your setup. See [Connection Testing](#connection-testing) below for full details.
 
-**1. Ping test** — confirms the cartridge is on the cartridge path and loading:
-```
-https://<sandbox>/on/demandware.store/<site>/default/LLMTest-Ping
-```
-Expected response: `pong - LLM Integration cartridge is loaded`
+1. In **Site Preferences → Custom Preferences → LLM Integration**, set **LLM Test Mode Enabled** to `true`
+2. Open `https://<sandbox>/on/demandware.store/Sites-<site-id>-Site/default/LLMTest-Show` in your browser (replace `<sandbox>` with your sandbox hostname and `<site-id>` with your storefront site ID, e.g., `RefArch` → `Sites-RefArch-Site` — find the exact value in **Administration → Sites → Manage Sites**)
+3. Select a provider and model, then click **Test Sync** — you should see `"success": true` and the LLM's reply
+4. Click **Test Batch** — you should see `"success": true` and a batch ID
+5. Set **LLM Test Mode Enabled** back to `false` when done
 
-**2. Config test** — confirms site preferences are imported and readable:
-```
-https://<sandbox>/on/demandware.store/<site>/default/LLMTest-Config
-```
-Expected response: JSON showing your configured providers, models, and Anthropic API version.
-
-**3. Integration test** — full round-trip to a live LLM provider:
-```
-https://<sandbox>/on/demandware.store/<site>/default/LLMTest-Test?provider=openai&model=gpt-5-mini
-```
-Expected response: JSON with `"success": true` and the LLM's reply. If this fails, check the `hint` field in the error response for troubleshooting guidance.
+If a test fails, the response includes an `errorType` and `hint` to help diagnose the issue.
 
 ## Usage
 
@@ -273,6 +264,7 @@ Makes a request to an LLM provider.
 | `llmDebugMode` | Boolean | `false` | Include raw responses in output (disable in production) |
 | `llmDefaultModel` | String | `gpt-5.2` | Default model identifier; provider resolved from models JSON |
 | `llmSystemInstructions` | Text | (empty) | Persistent system-level instructions for all requests |
+| `llmTestModeEnabled` | Boolean | `false` | Enables the connection test page (never leave enabled in production) |
 
 ### Service Profile Settings
 
@@ -349,14 +341,132 @@ Each provider service includes these configurable settings:
 
 **Solution**: The circuit breaker trips after consecutive failures. Wait for the reset interval (default 30 seconds) and the breaker will auto-reset.
 
-## Testing
+## Connection Testing
+
+The cartridge includes a storefront test page that lets you verify LLM provider connectivity directly from your browser — for both synchronous (single-request) and batch APIs. Use it after installation or whenever you change service credentials, models, or provider configuration.
+
+### Enabling Test Mode
+
+All test endpoints are gated behind the `llmTestModeEnabled` site preference, which defaults to `false`. When disabled, the test page shows a "Test Mode Disabled" message and all endpoints return `403 Forbidden`.
+
+1. Navigate to **Merchant Tools → Site Preferences → Custom Preferences**
+2. Select the **LLM Integration** preference group
+3. Set **LLM Test Mode Enabled** to `true`
+4. Click **Apply**
+
+> **Warning:** Never leave `llmTestModeEnabled` enabled in production. The test page is accessible on the storefront and makes LLM API calls using your configured credentials. Always disable it when you are done testing.
+
+### Opening the Test Page
+
+Open the following URL in your browser, replacing `<sandbox>` with your sandbox hostname and `<site-id>` with your storefront site ID (find it in **Administration → Sites → Manage Sites**, e.g., `RefArch`):
+
+```
+https://<sandbox>/on/demandware.store/Sites-<site-id>-Site/default/LLMTest-Show
+```
+
+The page displays a **Provider** dropdown (OpenAI, Anthropic, Gemini) and a **Model** dropdown populated from your `llmAvailableModelsJson` configuration. The **Test Sync** and **Test Batch** buttons remain disabled until you select both a provider and a model.
+
+### Testing a Sync Connection
+
+A sync test sends a short prompt to the selected provider and model, waits for the LLM to respond, and displays the result. This validates the full request path: service definition, credentials, model configuration, and provider reachability.
+
+1. Select a **Provider** (e.g., `openai`)
+2. Select a **Model** (e.g., `gpt-5-mini`)
+3. Click **Test Sync**
+4. Wait for the result to appear below the buttons
+
+**On success**, you will see a JSON response:
+
+```json
+{
+  "success": true,
+  "provider": "openai",
+  "model": "gpt-5-mini",
+  "response": "Connection confirmed! I received your test message successfully.",
+  "finishReason": "stop",
+  "usage": { "promptTokens": 42, "completionTokens": 12, "totalTokens": 54 },
+  "durationMs": 1230
+}
+```
+
+Key things to verify:
+- `success` is `true`
+- `provider` and `model` match what you selected
+- `response` contains a coherent reply from the LLM
+- `durationMs` is reasonable for your network (typically 1–5 seconds)
+
+**On failure**, the response includes `error`, `errorType`, and often a `hint` field explaining what to fix. See [Interpreting Errors](#interpreting-errors) below.
+
+### Testing a Batch Connection
+
+A batch test submits a single-item batch job to the provider's batch API. This validates that batch service definitions, file uploads (OpenAI), and batch creation endpoints are working. The test only verifies that the provider **accepted** the batch — it does not wait for the batch to complete.
+
+1. Select a **Provider**
+2. Select a **Model**
+3. Click **Test Batch**
+4. Wait for the result to appear below the buttons
+
+**On success**, you will see a JSON response:
+
+```json
+{
+  "success": true,
+  "batchId": "batch_abc123",
+  "provider": "openai",
+  "status": "pending",
+  "totalRequests": 1,
+  "durationMs": 890
+}
+```
+
+Key things to verify:
+- `success` is `true`
+- `batchId` is present — the provider accepted the batch
+- `status` is a valid initial state (typically `pending` or `processing`)
+
+A returned `batchId` confirms that the batch API credentials and service configuration are correct. You do not need to poll or wait for the batch to finish — acceptance alone proves connectivity.
+
+**On failure**, the response includes `error` and `errorType`. See [Interpreting Errors](#interpreting-errors) below.
+
+### Interpreting Errors
+
+If either test fails, the JSON response includes an `errorType` that identifies the category of failure:
+
+| Error Type | HTTP Status | Meaning | How to Fix |
+|------------|-------------|---------|------------|
+| `AuthenticationError` | 401 | API key is missing, invalid, or revoked | Check the **Password** field in **Administration → Operations → Services → Credentials** for the provider's credential (`llm.openai.cred`, `llm.anthropic.cred`, or `llm.gemini.cred`) |
+| `ConfigurationError` | 500 | Site preferences or service configuration is missing/invalid | Verify `llmAvailableModelsJson` is valid JSON, the selected model is listed, and the service definition exists |
+| `ValidationError` | 400 | The provider or model parameter is invalid | Ensure the model is present in `llmAvailableModelsJson` under the selected provider |
+| `RateLimitError` | 429 | Provider rate limit exceeded | Wait and retry, or adjust the Service Profile rate limiter in **Administration → Operations → Services** |
+| `TimeoutError` | 500 | Request timed out | Increase the timeout in the Service Profile, or try a faster model (e.g., a `cheap` tier model) |
+| `ProviderError` | 500 | Provider returned an unexpected error | Check the error message for details; may indicate a provider outage or unsupported model |
+
+If the test page itself shows "Test Mode Disabled" instead of the form, `llmTestModeEnabled` is set to `false` — enable it in Site Preferences and reload.
+
+### Additional Test Endpoints
+
+The test controller also exposes these JSON endpoints (also gated behind `llmTestModeEnabled`):
+
+| Endpoint | Description |
+|----------|-------------|
+| `LLMTest-Ping` | Returns `pong - LLM Integration cartridge is loaded` — confirms the cartridge is on the cartridge path |
+| `LLMTest-Config` | Returns JSON showing configured providers, models, and Anthropic API version — confirms site preferences are readable |
+
+### Disabling Test Mode
+
+After confirming connectivity, disable test mode:
+
+1. Navigate to **Merchant Tools → Site Preferences → Custom Preferences**
+2. Select the **LLM Integration** preference group
+3. Set **LLM Test Mode Enabled** to `false`
+4. Click **Apply**
 
 ### Mock Mode
 
-Set services to Mock mode in Business Manager for development:
+For development without making real API calls, set services to Mock mode:
 
-1. Navigate to Administration → Operations → Services
-2. Edit each LLM service
+1. Navigate to **Administration → Operations → Services**
+2. Edit each LLM service (`llm.openai`, `llm.anthropic`, `llm.gemini`)
 3. Enable **Mock Mode**
 
 Mock responses include the requested model name for verification:
@@ -365,19 +475,12 @@ Mock responses include the requested model name for verification:
 // Mock response content: "This is a mock response from OpenAI. Model: gpt-5-mini"
 ```
 
-### Integration Testing
-
-For integration tests against real APIs:
-
-1. Set services to Live mode
-2. Configure valid API keys in credentials
-3. Use actual model identifiers
-
 ## Security Considerations
 
 - **API Keys**: Never commit API keys to code; always use Service Credentials
 - **Logging**: The cartridge automatically redacts API keys and sensitive headers from logs
 - **Debug Mode**: Disable `llmDebugMode` in production to avoid exposing raw responses
+- **Test Mode**: Disable `llmTestModeEnabled` in production — the test page exposes a storefront endpoint that makes LLM API calls
 - **Rate Limiting**: Configure rate limits to prevent unexpected API costs
 - **PII**: Avoid sending personally identifiable information in prompts
 
@@ -389,35 +492,51 @@ int_llm_integration/
 │   ├── int_llm_integration.properties
 │   ├── controllers/
 │   │   └── LLMTest.js                    # Test/verification controller
+│   ├── templates/
+│   │   └── default/
+│   │       └── llmTest/
+│   │           └── connectionTest.isml   # Connection test page
 │   └── scripts/
 │       ├── helpers/
-│       │   ├── llmClient.js              # Main entry point
+│       │   ├── llmClient.js              # Main entry point (sync)
+│       │   ├── llmBatchClient.js         # Main entry point (batch)
 │       │   ├── llmConfigHelper.js        # Configuration management
 │       │   ├── llmErrorHelper.js         # Error handling
 │       │   ├── llmNormalizationHelper.js # Request/response transformation
 │       │   └── llmValidationHelper.js    # Request validation
 │       └── services/
-│           ├── llmOpenAIService.js       # OpenAI service
-│           ├── llmAnthropicService.js    # Anthropic service
-│           └── llmGeminiService.js       # Gemini service
+│           ├── llmOpenAIService.js        # OpenAI sync service
+│           ├── llmOpenAIBatchService.js   # OpenAI batch service
+│           ├── llmAnthropicService.js     # Anthropic sync service
+│           ├── llmAnthropicBatchService.js # Anthropic batch service
+│           ├── llmGeminiService.js        # Gemini sync service
+│           └── llmGeminiBatchService.js   # Gemini batch service
 ├── metadata/
-│   ├── services.xml                      # Service definitions (3 services, credentials, profiles)
+│   ├── services.xml                      # Service definitions (6 services, credentials, profiles)
 │   └── meta/
 │       └── system-objecttype-extensions.xml  # Site preference attributes
 ├── test/
 │   └── unit/
-│       └── scripts/helpers/
-│           ├── llmConfigHelper.test.js
-│           ├── llmErrorHelper.test.js
-│           ├── llmNormalizationHelper.test.js
-│           └── llmValidationHelper.test.js
+│       ├── controllers/
+│       │   └── LLMTest.test.js
+│       └── scripts/
+│           ├── helpers/
+│           │   ├── llmConfigHelper.test.js
+│           │   ├── llmBatchClient.test.js
+│           │   ├── llmErrorHelper.test.js
+│           │   ├── llmNormalizationHelper.test.js
+│           │   └── llmValidationHelper.test.js
+│           └── services/
+│               ├── llmOpenAIBatchService.test.js
+│               ├── llmAnthropicBatchService.test.js
+│               └── llmGeminiBatchService.test.js
 ├── package.json
 └── README.md
 ```
 
 ## Compatibility
 
-This cartridge is a pure server-side integration with **no storefront dependencies**. It does not use SFRA's `server.js`, `module.superModule`, ISML templates, or any `app_storefront_base` modules. It relies only on core SFCC platform APIs (`dw/system/Logger`, `dw/system/Site`, `dw/svc/LocalServiceRegistry`).
+This cartridge is a server-side integration with **no storefront dependencies**. It does not use SFRA's `server.js`, `module.superModule`, or any `app_storefront_base` modules. It relies only on core SFCC platform APIs (`dw/system/Logger`, `dw/system/Site`, `dw/svc/LocalServiceRegistry`). The connection test page uses a single standalone ISML template with no decorator or layout dependency.
 
 It is compatible with:
 - **SFRA** (Storefront Reference Architecture)
@@ -429,10 +548,4 @@ In a headless (PWA Kit) environment, the cartridge runs entirely on the SFCC ins
 
 ## License
 
-This project is open source and available under the [MIT License](LICENSE).
-
-Copyright (c) 2026 Bridge GPT.
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files, to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software.
-
-See the [LICENSE](LICENSE) file for the full text.
+Copyright (c) 2025. All rights reserved.

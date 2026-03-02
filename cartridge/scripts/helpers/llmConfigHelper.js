@@ -10,6 +10,7 @@
  */
 
 var Site = require('dw/system/Site');
+var System = require('dw/system/System');
 var Logger = require('dw/system/Logger');
 
 var errorHelper = require('*/cartridge/scripts/helpers/llmErrorHelper');
@@ -254,6 +255,19 @@ function getSystemInstructions() {
     return instructions || null;
 }
 
+/**
+ * Checks if LLM test mode is enabled.
+ *
+ * @returns {boolean} True if test mode is enabled
+ */
+function isTestModeEnabled() {
+    if (System.getInstanceType() === System.PRODUCTION_SYSTEM) {
+        return false;
+    }
+    var currentSite = Site.getCurrent();
+    return currentSite.getCustomPreferenceValue('llmTestModeEnabled') === true;
+}
+
 module.exports = {
     VALID_PROVIDERS: VALID_PROVIDERS,
     loadLLMConfiguration: loadLLMConfiguration,
@@ -264,5 +278,6 @@ module.exports = {
     isDebugMode: isDebugMode,
     getDefaultModel: getDefaultModel,
     resolveProviderForModel: resolveProviderForModel,
-    getSystemInstructions: getSystemInstructions
+    getSystemInstructions: getSystemInstructions,
+    isTestModeEnabled: isTestModeEnabled
 };
